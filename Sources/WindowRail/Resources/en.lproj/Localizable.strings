@@ -25,3 +25,5 @@
 "app.version" = "Version %@";
 "app.development" = "Development";
 "app.githubHelp" = "Open the WindowRail repository on GitHub";
+"language.title" = "Language";
+"language.system" = "Follow System";

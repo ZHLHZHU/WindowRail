@@ -1,6 +1,8 @@
 #!/bin/zsh
 set -eu
 cd "${0:A:h}/.."
+python3 tools/check-localizations.py
+python3 Tests/LocalizationChecks.py
 TEMP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/windowrail-tests.XXXXXX")
 trap 'rm -rf "$TEMP_DIR"' EXIT
 ditto Sources/WindowRail/Resources "$TEMP_DIR/WindowRailResources.bundle"

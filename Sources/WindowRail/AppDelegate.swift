@@ -24,27 +24,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.setActivationPolicy(.accessory)
         status = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         status.button?.image = NSImage(systemSymbolName: "sidebar.left", accessibilityDescription: "WindowRail")
-        let menu = NSMenu()
-        menu.addItem(withTitle: L10n.text("settings.open"), action: #selector(showPreferences), keyEquivalent: ",")
-        menu.addItem(NSMenuItem.separator())
-        menu.addItem(withTitle: L10n.text("sidebar.toggle"), action: #selector(toggleSidebar), keyEquivalent: "")
-        menu.addItem(withTitle: L10n.text("accessibility.open"), action: #selector(openPermissions), keyEquivalent: "")
-        menu.addItem(withTitle: L10n.text("keyboard.retry"), action: #selector(retryKeyboard), keyEquivalent: "")
-        menu.addItem(NSMenuItem.separator())
-        menu.addItem(withTitle: L10n.text("app.quit"), action: #selector(quit), keyEquivalent: "q")
-        for item in menu.items { item.target = self }
-        status.menu = menu
         status.isVisible = preferences.showMenuBarIcon
         preferences.onMenuBarVisibilityChanged = { [weak self] visible in self?.status.isVisible = visible }
         sidebar = panel(width: 174, height: 700)
         sidebar.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.dockWindow)))
         let railContent = NativeRailView(model: model, settings: { [weak self] in self?.openPermissions() })
         nativeRail = railContent
-        let sidebarMenu = NSMenu()
-        sidebarMenu.addItem(withTitle: L10n.text("settings.open"), action: #selector(showPreferences), keyEquivalent: "")
-        sidebarMenu.addItem(withTitle: L10n.text("app.quit"), action: #selector(quit), keyEquivalent: "")
-        for item in sidebarMenu.items { item.target = self }
-        nativeRail.menu = sidebarMenu
+        configureLocalizedMenus()
+        preferences.onLanguageChanged = { [weak self] language in
+            L10n.setLanguage(language)
+            self?.refreshLocalizedUI()
+        }
         railMotion = RailMotion(content: railContent)
         sidebar.contentView = railMotion.clip
         railMotion.clip.onMouseEntered = { [weak self] in
@@ -87,11 +77,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NotificationCenter.default.addObserver(self, selector: #selector(refreshPreferences), name: NSApplication.didBecomeActiveNotification, object: nil)
         if CommandLine.arguments.contains("--settings") { showPreferences() }
     }
+    func configureLocalizedMenus() {
+        let menu = NSMenu()
+        menu.addItem(withTitle: L10n.text(.settingsOpen), action: #selector(showPreferences), keyEquivalent: ",")
+        menu.addItem(NSMenuItem.separator())
+        menu.addItem(withTitle: L10n.text(.sidebarToggle), action: #selector(toggleSidebar), keyEquivalent: "")
+        menu.addItem(withTitle: L10n.text(.accessibilityOpen), action: #selector(openPermissions), keyEquivalent: "")
+        menu.addItem(withTitle: L10n.text(.keyboardRetry), action: #selector(retryKeyboard), keyEquivalent: "")
+        menu.addItem(NSMenuItem.separator())
+        menu.addItem(withTitle: L10n.text(.appQuit), action: #selector(quit), keyEquivalent: "q")
+        for item in menu.items { item.target = self }
+        status.menu = menu
+        let sidebarMenu = NSMenu()
+        sidebarMenu.addItem(withTitle: L10n.text(.settingsOpen), action: #selector(showPreferences), keyEquivalent: "")
+        sidebarMenu.addItem(withTitle: L10n.text(.appQuit), action: #selector(quit), keyEquivalent: "")
+        for item in sidebarMenu.items { item.target = self }
+        nativeRail.menu = sidebarMenu
+    }
+    func refreshLocalizedUI() {
+        configureLocalizedMenus()
+        preferencesWindow?.title = L10n.text(.settingsTitle)
+        model.refreshLocalizedGroups()
+        switcher.contentView = NSHostingView(rootView: SwitcherView(model: model))
+    }
     @objc func refreshPreferences() { preferences.refreshLoginStatus() }
     @objc func showPreferences() {
         if preferencesWindow == nil {
             let window = NSWindow(contentRect: NSRect(origin: .zero, size: PreferencesView.windowSize), styleMask: [.titled, .closable], backing: .buffered, defer: false)
-            window.title = L10n.text("settings.title")
+            window.title = L10n.text(.settingsTitle)
             window.isReleasedWhenClosed = false
             window.contentView = NSHostingView(rootView: PreferencesView(preferences: preferences,
                 openPermissions: { [weak self] in self?.openPermissions() },

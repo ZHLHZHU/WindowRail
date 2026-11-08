@@ -18,14 +18,14 @@ struct WindowRow: View {
                 .lineLimit(1).truncationMode(.tail)
             Spacer(minLength: 0)
             if current {
-                Text(L10n.text("window.current"))
+                Text(L10n.text(.windowCurrent))
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(selected ? Color.white : Color.secondary)
                     .padding(.horizontal, 6).padding(.vertical, 2)
                     .background((selected ? Color.white : Color.primary).opacity(0.12))
                     .clipShape(RoundedRectangle(cornerRadius: 5))
                     .fixedSize()
-                    .accessibilityLabel(L10n.text("window.currentAccessibility"))
+                    .accessibilityLabel(L10n.text(.windowCurrentAccessibility))
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -41,9 +41,9 @@ struct SwitcherView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text(L10n.text("switcher.title")).font(.headline)
+                Text(L10n.text(.switcherTitle)).font(.headline)
                 Spacer()
-                Text(L10n.text("switcher.help")).font(.caption).foregroundStyle(.secondary)
+                Text(L10n.text(.switcherHelp)).font(.caption).foregroundStyle(.secondary)
             }.padding(.horizontal, 10).padding(.top, 8)
             ScrollViewReader { proxy in
                 ScrollView {

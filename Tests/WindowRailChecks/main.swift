@@ -105,8 +105,49 @@ checks.testExitGracePeriodAndReentry()
 checks.testMenuBarPreferencePersistsAndNotifies()
 print("PASS: 6 regression checks (grouping, fallback, origin marker, key routing, edge delay, preferences)")
 
-expectEqual(L10n.text("settings.open", language: "en"), "Settings…")
-expectEqual(L10n.text("settings.open", language: "zh-Hans"), "设置…")
-expectEqual(L10n.text("settings.open", language: "fr"), "Settings…")
-expectEqual(L10n.text("window.current", language: "en"), "Current")
+expectEqual(L10n.text(.settingsOpen, language: "en"), "Settings…")
+expectEqual(L10n.text(.settingsOpen, language: "zh-Hans"), "设置…")
+expectEqual(L10n.text(.settingsOpen, language: "fr"), "Settings…")
+expectEqual(L10n.text(.windowCurrent, language: "en"), "Current")
 print("PASS: English, Simplified Chinese and unsupported-language fallback")
+
+// A selected language can exist while an individual key is still untranslated.
+let fixture = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+try FileManager.default.createDirectory(at: fixture, withIntermediateDirectories: true)
+defer { try? FileManager.default.removeItem(at: fixture) }
+for (language, contents) in [
+    "en": "\"app.quit\" = \"English fallback\";\n",
+    "zh-Hans": "\"settings.open\" = \"设置\";\n"
+] {
+    let directory = fixture.appendingPathComponent("\(language).lproj")
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    try contents.write(to: directory.appendingPathComponent("Localizable.strings"), atomically: true, encoding: .utf8)
+}
+let fixtureBundle = Bundle(path: fixture.path)!
+expectEqual(L10n.text(.appQuit, language: "zh-Hans", bundle: fixtureBundle), "English fallback")
+expectEqual(L10n.text(.settingsOpen, language: "zh-Hans", bundle: fixtureBundle), "设置")
+
+let languageDomain = "WindowRailLanguageTests.\(UUID().uuidString)"
+let languageDefaults = UserDefaults(suiteName: languageDomain)!
+defer { languageDefaults.removePersistentDomain(forName: languageDomain) }
+let originalChoice = L10n.languageChoice
+defer { L10n.setLanguage(originalChoice) }
+let languagePreferences = PreferencesModel(defaults: languageDefaults)
+expectEqual(languagePreferences.language, "")
+languagePreferences.onLanguageChanged = { L10n.setLanguage($0) }
+languagePreferences.setLanguage("en")
+expectEqual(PreferencesModel(defaults: languageDefaults).language, "en")
+expectEqual(L10n.text(.appQuit), "Quit WindowRail")
+let languageModel = WindowModel()
+languageModel.groups = [SidebarGroup(id: "space:10", title: "Desktop 1", entries: [])]
+languagePreferences.setLanguage("zh-Hans")
+languageModel.refreshLocalizedGroups()
+expectEqual(L10n.text(.appQuit), "退出 WindowRail")
+expectEqual(languageModel.groups.first?.title, "桌面 1")
+expectEqual(L10n.format(.groupDesktop, 2), "桌面 2")
+languagePreferences.setLanguage("unknown-language")
+expectEqual(languagePreferences.language, "")
+expectEqual(PreferencesModel(defaults: languageDefaults).language, "")
+expectEqual(L10n.currentLanguage, L10n.languageIdentifier(for: ""))
+expectEqual(Set(L10n.availableLanguages), Set(["en", "zh-Hans"]))
+print("PASS: per-key fallback, live language change, persisted selection and system-language reset")

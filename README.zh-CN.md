@@ -2,7 +2,7 @@
 
 [English](README.md) | 简体中文
 
-轻量的 macOS 窗口切换工具。用贴边侧栏找到窗口，用 ⌘Tab 和 ⌘` 快速切换。支持桌面分组、当前窗口标记、深色模式、中英文、自启动和菜单栏图标设置。
+轻量的 macOS 窗口切换工具。用贴边侧栏找到窗口，用 ⌘Tab 和 ⌘` 快速切换。支持桌面分组、当前窗口标记、深色模式、中英文切换、自启动和菜单栏图标设置。
 
 ## 界面预览
 
@@ -10,7 +10,7 @@
 
 贴边展开，按桌面分组，点击即可切换窗口。
 
-<img src="docs/images/zh-CN/sidebar.png" alt="侧边栏示例，展示 Apps、Full Screen 与桌面分组" width="220">
+<img src="docs/images/zh-CN/sidebar.png" alt="侧边栏示例，展示应用、全屏与桌面分组" width="220">
 
 ### 窗口切换
 
@@ -20,9 +20,9 @@
 
 ### 设置
 
-配置登录自启动与菜单栏图标显示。
+切换界面语言，配置登录自启动与菜单栏图标显示。
 
-<img src="docs/images/zh-CN/settings.png" alt="设置页示例，包含自启动和菜单栏图标开关" width="620">
+<img src="docs/images/zh-CN/settings.png" alt="设置页示例，包含语言选择、自启动和菜单栏图标开关" width="620">
 
 ## 快捷键
 

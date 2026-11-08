@@ -25,3 +25,5 @@
 "app.version" = "版本 %@";
 "app.development" = "开发版";
 "app.githubHelp" = "在 GitHub 上查看 WindowRail 项目";
+"language.title" = "语言";
+"language.system" = "跟随系统";

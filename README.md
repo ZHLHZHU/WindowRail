@@ -2,7 +2,7 @@
 
 English | [简体中文](README.zh-CN.md)
 
-A lightweight window switcher for macOS. Find windows in the edge sidebar or switch with ⌘Tab and ⌘`. Includes desktop groups, a current-window marker, dark mode, English and Chinese, launch at login, and a menu bar icon toggle.
+A lightweight window switcher for macOS. Find windows in the edge sidebar or switch with ⌘Tab and ⌘`. Includes desktop groups, a current-window marker, dark mode, English and Chinese language switching, launch at login, and a menu bar icon toggle.
 
 ## Screenshots
 
@@ -20,9 +20,9 @@ Hold Command to navigate. The blue row is the destination; “Current” marks t
 
 ### Settings
 
-Configure launch at login and menu bar visibility.
+Choose a language and configure launch at login and menu bar visibility.
 
-<img src="docs/images/en/settings.png" alt="Settings showing launch-at-login and menu-bar options" width="620">
+<img src="docs/images/en/settings.png" alt="Settings showing language, launch-at-login and menu-bar options" width="620">
 
 ## Keyboard shortcuts
 

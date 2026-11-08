@@ -44,7 +44,7 @@ final class WindowModel: ObservableObject {
                 for window in windows {
                     let subrole = attribute(window, kAXSubroleAttribute) as? String
                     guard subrole == kAXStandardWindowSubrole || subrole == kAXDialogSubrole else { continue }
-                    let title = (attribute(window, kAXTitleAttribute) as? String).flatMap { $0.isEmpty ? nil : $0 } ?? app.localizedName ?? L10n.text("window.fallback")
+                    let title = (attribute(window, kAXTitleAttribute) as? String).flatMap { $0.isEmpty ? nil : $0 } ?? app.localizedName ?? L10n.text(.windowFallback)
                     let windowID = spaceCatalog.id(for: window)
                     let id = "\(app.processIdentifier):\(windowID.map(String.init) ?? String(CFHash(window)))"
                     let membership = spaceCatalog.memberships(for: windowID)
@@ -55,7 +55,7 @@ final class WindowModel: ObservableObject {
                 }
                 if count == 0 {
                     let id = "app:\(app.processIdentifier)"
-                    result.append(WindowEntry(id: id, pid: app.processIdentifier, app: app, window: nil, title: app.localizedName ?? L10n.text("app.fallback")))
+                    result.append(WindowEntry(id: id, pid: app.processIdentifier, app: app, window: nil, title: app.localizedName ?? L10n.text(.appFallback)))
                     if app.processIdentifier == frontPID { focusedID = id }
                 }
             }
@@ -85,6 +85,23 @@ final class WindowModel: ObservableObject {
                 }
                 groups = spaceCatalog.groups(for: entries)
             }
+        }
+    }
+    func refreshLocalizedGroups() {
+        var desktop = 0
+        groups = groups.map { group in
+            let title: String
+            switch group.id {
+            case "apps": title = L10n.text(.groupApps)
+            case "fullscreen": title = L10n.text(.groupFullscreen)
+            case "unknown": title = L10n.text(.groupOther)
+            default:
+                if group.id.hasPrefix("space:") {
+                    desktop += 1
+                    title = L10n.format(.groupDesktop, desktop)
+                } else { title = group.title }
+            }
+            return SidebarGroup(id: group.id, title: title, entries: group.entries)
         }
     }
     func step(sameApp: Bool, backwards: Bool) {

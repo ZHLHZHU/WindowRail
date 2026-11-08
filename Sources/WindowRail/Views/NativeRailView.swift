@@ -138,8 +138,8 @@ final class NativeRailView: NSView {
         document.setFrameSize(NSSize(width: bounds.width, height: preferredHeight))
     }
     private func render(groups: [SidebarGroup], trusted: Bool) {
-        let next = "\(trusted):" + groups.map { group in
-            group.id + ":" + group.entries.map { $0.id + ":" + $0.title }.joined(separator: "\u{1f}")
+        let next = "\(L10n.currentLanguage):\(trusted):" + groups.map { group in
+            group.id + ":" + group.title + ":" + group.entries.map { $0.id + ":" + $0.title }.joined(separator: "\u{1f}")
         }.joined(separator: "\u{1e}")
         guard signature != next else { return }
         signature = next
@@ -172,7 +172,7 @@ final class NativeRailView: NSView {
             y += 7
         }
         if !trusted {
-            let permission = RailButton(title: L10n.text("accessibility.enable"), action: settings)
+            let permission = RailButton(title: L10n.text(.accessibilityEnable), action: settings)
             permission.setTitleStyle(font: .systemFont(ofSize: 12), color: .secondaryLabelColor)
             permission.frame = NSRect(x: 10, y: y, width: 154, height: 34)
             document.addSubview(permission)

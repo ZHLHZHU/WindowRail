@@ -40,10 +40,10 @@ MainActor.assumeIsolated {
     }
     let samples = [row("docs", demo("Design notes · Demo Project", "设计文档 · 示例项目"), browser), row("code", "Welcome.swift — DemoApp", editor), row("notes", demo("Weekly plan", "本周计划"), notes), row("files", demo("Sample files", "示例文件"), files)]
     model.groups = [
-        SidebarGroup(id: "apps", title: L10n.text("group.apps"), entries: [row("music", demo("Music", "音乐"), music)]),
-        SidebarGroup(id: "full", title: L10n.text("group.fullscreen"), entries: []),
-        SidebarGroup(id: "desktop:1", title: L10n.format("group.desktop", 1), entries: samples),
-        SidebarGroup(id: "desktop:2", title: L10n.format("group.desktop", 2), entries: [row("ideas", demo("Ideas", "灵感收集"), notes)])
+        SidebarGroup(id: "apps", title: L10n.text(.groupApps), entries: [row("music", demo("Music", "音乐"), music)]),
+        SidebarGroup(id: "full", title: L10n.text(.groupFullscreen), entries: []),
+        SidebarGroup(id: "desktop:1", title: L10n.format(.groupDesktop, 1), entries: samples),
+        SidebarGroup(id: "desktop:2", title: L10n.format(.groupDesktop, 2), entries: [row("ideas", demo("Ideas", "灵感收集"), notes)])
     ]
     model.trusted = true
     model.choices = samples

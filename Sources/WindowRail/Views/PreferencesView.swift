@@ -2,8 +2,8 @@ import SwiftUI
 import ServiceManagement
 
 struct PreferencesView: View {
-    static let windowSize = NSSize(width: 460, height: 250)
-    var version: String = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? L10n.text("app.development")
+    static let windowSize = NSSize(width: 460, height: 300)
+    var version: String? = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
     @ObservedObject var preferences: PreferencesModel
     let openPermissions: () -> Void
     let quit: () -> Void
@@ -11,19 +11,28 @@ struct PreferencesView: View {
         VStack(spacing: 0) {
             Form {
                 Section {
-                    Toggle(L10n.text("login.toggle"), isOn: Binding(get: { preferences.launchAtLogin }, set: preferences.setLaunchAtLogin))
+                    Picker(L10n.text(.languageTitle), selection: Binding(get: { preferences.language }, set: preferences.setLanguage)) {
+                        Text(L10n.text(.languageSystem)).tag("")
+                        ForEach(L10n.availableLanguages, id: \.self) { identifier in
+                            Text(L10n.languageName(identifier)).tag(identifier)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                }
+                Section {
+                    Toggle(L10n.text(.loginToggle), isOn: Binding(get: { preferences.launchAtLogin }, set: preferences.setLaunchAtLogin))
                     if preferences.loginStatus == .requiresApproval {
                         HStack {
-                            Text(L10n.text("login.approval"))
+                            Text(L10n.text(.loginApproval))
                                 .font(.caption).foregroundStyle(.secondary)
                             Spacer()
-                            Button(L10n.text("systemSettings.open")) { SMAppService.openSystemSettingsLoginItems() }
+                            Button(L10n.text(.systemSettingsOpen)) { SMAppService.openSystemSettingsLoginItems() }
                         }
                     }
                 }
                 Section {
-                    Toggle(L10n.text("menuBar.toggle"), isOn: Binding(get: { preferences.showMenuBarIcon }, set: preferences.setMenuBarIcon))
-                    Text(L10n.text("menuBar.help"))
+                    Toggle(L10n.text(.menuBarToggle), isOn: Binding(get: { preferences.showMenuBarIcon }, set: preferences.setMenuBarIcon))
+                    Text(L10n.text(.menuBarHelp))
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 if let message = preferences.errorMessage {
@@ -31,23 +40,23 @@ struct PreferencesView: View {
                 }
             }.formStyle(.grouped)
             HStack {
-                Button(L10n.text("accessibility.open"), action: openPermissions)
+                Button(L10n.text(.accessibilityOpen), action: openPermissions)
                 Spacer()
-                Button(L10n.text("app.quit"), action: quit)
+                Button(L10n.text(.appQuit), action: quit)
             }
-            .controlSize(.small)
+            .controlSize(.regular)
             .padding(.horizontal, 20)
             .padding(.bottom, 16)
 
             Divider()
             HStack(spacing: 6) {
                 Text("WindowRail")
-                Text(version)
-                    .accessibilityLabel(L10n.format("app.version", version))
+                Text(version ?? L10n.text(.appDevelopment))
+                    .accessibilityLabel(L10n.format(.appVersion, version ?? L10n.text(.appDevelopment)))
                 Text("·")
                 Link("GitHub", destination: URL(string: "https://github.com/ZHLHZHU/WindowRail")!)
                     .foregroundStyle(Color(nsColor: .linkColor))
-                    .help(L10n.text("app.githubHelp"))
+                    .help(L10n.text(.appGithubHelp))
             }
             .font(.system(size: 11))
             .foregroundStyle(.secondary)

@@ -53,7 +53,7 @@ final class WindowActivator {
                 if let error {
                     self.log.error("Application reopen failed: \(error.localizedDescription, privacy: .public)")
                     let alert = NSAlert()
-                    alert.messageText = L10n.text("app.openError")
+                    alert.messageText = L10n.text(.appOpenError)
                     alert.informativeText = error.localizedDescription
                     alert.runModal()
                     return

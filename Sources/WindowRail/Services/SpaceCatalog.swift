@@ -52,9 +52,9 @@ final class SpaceCatalog {
                 guard seen.insert(id).inserted else { continue }
                 if type.intValue == 0 {
                     desktop += 1
-                    result.append(DesktopSpace(id: id, title: L10n.format("group.desktop", desktop), fullScreen: false, displayID: display["Display Identifier"] as? String ?? ""))
+                    result.append(DesktopSpace(id: id, title: L10n.format(.groupDesktop, desktop), fullScreen: false, displayID: display["Display Identifier"] as? String ?? ""))
                 } else if type.intValue == 4 {
-                    result.append(DesktopSpace(id: id, title: L10n.text("group.fullscreen"), fullScreen: true, displayID: display["Display Identifier"] as? String ?? ""))
+                    result.append(DesktopSpace(id: id, title: L10n.text(.groupFullscreen), fullScreen: true, displayID: display["Display Identifier"] as? String ?? ""))
                 }
             }
         }
@@ -92,16 +92,16 @@ final class SpaceCatalog {
         }
         let windows = sidebarEntries.filter { $0.window != nil }
         var groups = [
-            SidebarGroup(id: "apps", title: L10n.text("group.apps"), entries: sidebarEntries.filter { $0.window == nil }),
-            SidebarGroup(id: "fullscreen", title: L10n.text("group.fullscreen"), entries: windows.filter(isFullScreen))
+            SidebarGroup(id: "apps", title: L10n.text(.groupApps), entries: sidebarEntries.filter { $0.window == nil }),
+            SidebarGroup(id: "fullscreen", title: L10n.text(.groupFullscreen), entries: windows.filter(isFullScreen))
         ]
-        for desktop in desktops {
-            groups.append(SidebarGroup(id: "space:\(desktop.id)", title: desktop.title,
+        for (index, desktop) in desktops.enumerated() {
+            groups.append(SidebarGroup(id: "space:\(desktop.id)", title: L10n.format(.groupDesktop, index + 1),
                 entries: windows.filter { !isFullScreen($0) && $0.spaceIDs.contains(desktop.id) }))
         }
         // Unknown membership is explicit; never guess Desktop 1 for an unmatched window.
         let unknown = windows.filter { !isFullScreen($0) && desktopIDs.isDisjoint(with: $0.spaceIDs) }
-        if !unknown.isEmpty { groups.append(SidebarGroup(id: "unknown", title: L10n.text("group.other"), entries: unknown)) }
+        if !unknown.isEmpty { groups.append(SidebarGroup(id: "unknown", title: L10n.text(.groupOther), entries: unknown)) }
         return groups
     }
 }
