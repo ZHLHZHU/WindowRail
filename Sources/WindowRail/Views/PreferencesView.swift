@@ -35,19 +35,20 @@ struct PreferencesView: View {
                     Text(L10n.text(.menuBarHelp))
                         .font(.caption).foregroundStyle(.secondary)
                 }
+                Section {
+                    HStack {
+                        Button(L10n.text(.accessibilityOpen), action: openPermissions)
+                        Spacer()
+                        Button(L10n.text(.appQuit), action: quit)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.regular)
+                    .padding(.vertical, 2)
+                }
                 if let message = preferences.errorMessage {
                     Text(message).font(.caption).foregroundStyle(.red).textSelection(.enabled)
                 }
             }.formStyle(.grouped)
-            HStack {
-                Button(L10n.text(.accessibilityOpen), action: openPermissions)
-                Spacer()
-                Button(L10n.text(.appQuit), action: quit)
-            }
-            .controlSize(.regular)
-            .padding(.horizontal, 20)
-            .padding(.bottom, 16)
-
             Divider()
             HStack(spacing: 6) {
                 Text("WindowRail")

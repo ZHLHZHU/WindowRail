@@ -42,7 +42,11 @@ enum L10n {
 
     /// Language identifiers come from bundled resources; an empty choice follows macOS.
     static var availableLanguages: [String] {
-        resources.localizations.filter { $0 != "Base" }.sorted()
+        languages(in: resources)
+    }
+    static func languages(in bundle: Bundle) -> [String] {
+        // Foundation may report a language once from Info.plist and again from .lproj.
+        Array(Set(bundle.localizations.filter { $0 != "Base" })).sorted()
     }
     static func validChoice(_ identifier: String) -> String {
         availableLanguages.contains(identifier) ? identifier : ""

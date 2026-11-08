@@ -151,3 +151,20 @@ expectEqual(PreferencesModel(defaults: languageDefaults).language, "")
 expectEqual(L10n.currentLanguage, L10n.languageIdentifier(for: ""))
 expectEqual(Set(L10n.availableLanguages), Set(["en", "zh-Hans"]))
 print("PASS: per-key fallback, live language change, persisted selection and system-language reset")
+
+// Reproduce a production .app declaring languages in Info.plist as well as .lproj.
+let packaged = fixture.appendingPathComponent("Packaged.bundle")
+try FileManager.default.createDirectory(at: packaged, withIntermediateDirectories: true)
+for language in ["en", "zh-Hans"] {
+    try FileManager.default.createDirectory(at: packaged.appendingPathComponent("\(language).lproj"), withIntermediateDirectories: true)
+}
+let packagedInfo: [String: Any] = [
+    "CFBundleIdentifier": "local.windowrail.localization-test",
+    "CFBundleLocalizations": ["en", "en", "zh-Hans", "zh-Hans"],
+    "CFBundleDevelopmentRegion": "en"
+]
+try PropertyListSerialization.data(fromPropertyList: packagedInfo, format: .xml, options: 0).write(to: packaged.appendingPathComponent("Info.plist"))
+let packagedBundle = Bundle(path: packaged.path)!
+expectEqual(L10n.languages(in: packagedBundle), ["en", "zh-Hans"])
+expectEqual(L10n.availableLanguages.count, Set(L10n.availableLanguages).count)
+print("PASS: packaged-app languages are unique even when metadata and resources overlap")
