@@ -90,7 +90,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc func refreshPreferences() { preferences.refreshLoginStatus() }
     @objc func showPreferences() {
         if preferencesWindow == nil {
-            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 460, height: 290), styleMask: [.titled, .closable], backing: .buffered, defer: false)
+            let window = NSWindow(contentRect: NSRect(origin: .zero, size: PreferencesView.windowSize), styleMask: [.titled, .closable], backing: .buffered, defer: false)
             window.title = L10n.text("settings.title")
             window.isReleasedWhenClosed = false
             window.contentView = NSHostingView(rootView: PreferencesView(preferences: preferences,

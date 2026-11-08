@@ -22,3 +22,6 @@
 "group.fullscreen" = "全屏";
 "group.desktop" = "桌面 %d";
 "group.other" = "其他窗口";
+"app.version" = "版本 %@";
+"app.development" = "开发版";
+"app.githubHelp" = "在 GitHub 上查看 WindowRail 项目";

@@ -2,6 +2,8 @@ import SwiftUI
 import ServiceManagement
 
 struct PreferencesView: View {
+    static let windowSize = NSSize(width: 460, height: 250)
+    var version: String = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? L10n.text("app.development")
     @ObservedObject var preferences: PreferencesModel
     let openPermissions: () -> Void
     let quit: () -> Void
@@ -28,14 +30,32 @@ struct PreferencesView: View {
                     Text(message).font(.caption).foregroundStyle(.red).textSelection(.enabled)
                 }
             }.formStyle(.grouped)
-            Divider()
             HStack {
                 Button(L10n.text("accessibility.open"), action: openPermissions)
                 Spacer()
                 Button(L10n.text("app.quit"), action: quit)
-            }.padding(16)
+            }
+            .controlSize(.small)
+            .padding(.horizontal, 20)
+            .padding(.bottom, 16)
+
+            Divider()
+            HStack(spacing: 6) {
+                Text("WindowRail")
+                Text(version)
+                    .accessibilityLabel(L10n.format("app.version", version))
+                Text("·")
+                Link("GitHub", destination: URL(string: "https://github.com/ZHLHZHU/WindowRail")!)
+                    .foregroundStyle(Color(nsColor: .linkColor))
+                    .help(L10n.text("app.githubHelp"))
+            }
+            .font(.system(size: 11))
+            .foregroundStyle(.secondary)
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity)
         }
-        .frame(width: 460, height: 290)
+        .background(Color(nsColor: .windowBackgroundColor))
+        .frame(width: Self.windowSize.width, height: Self.windowSize.height)
         .onAppear { preferences.refreshLoginStatus() }
     }
 }

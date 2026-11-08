@@ -22,3 +22,6 @@
 "group.fullscreen" = "Full Screen";
 "group.desktop" = "Desktop %d";
 "group.other" = "Other Windows";
+"app.version" = "Version %@";
+"app.development" = "Development";
+"app.githubHelp" = "Open the WindowRail repository on GitHub";

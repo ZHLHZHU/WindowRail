@@ -61,12 +61,7 @@ MainActor.assumeIsolated {
         RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.35))
         view.layoutSubtreeIfNeeded()
         window.displayIfNeeded()
-        var region = view.bounds
-        if name == "settings.png" {
-            // Show the settings controls, excluding the auxiliary footer actions.
-            if !view.isFlipped { region.origin.y = region.maxY - 155 }
-            region.size.height = 155
-        }
+        let region = view.bounds
         let bitmap = view.bitmapImageRepForCachingDisplay(in: region)!
         window.effectiveAppearance.performAsCurrentDrawingAppearance {
             view.cacheDisplay(in: region, to: bitmap)
@@ -79,7 +74,9 @@ MainActor.assumeIsolated {
     let domain = "WindowRail.Documentation.\(UUID().uuidString)"
     let defaults = UserDefaults(suiteName: domain)!
     let preferences = PreferencesModel(defaults: defaults)
-    capture(NSHostingView(rootView: PreferencesView(preferences: preferences, openPermissions: {}, quit: {}).environment(\.controlActiveState, .active)), size: NSSize(width: 460, height: 290), name: "settings.png")
+    let info = NSDictionary(contentsOfFile: "Resources/Info.plist")!
+    let previewVersion = info["CFBundleShortVersionString"] as! String
+    capture(NSHostingView(rootView: PreferencesView(version: previewVersion, preferences: preferences, openPermissions: {}, quit: {}).environment(\.controlActiveState, .active)), size: PreferencesView.windowSize, name: "settings.png")
     defaults.removePersistentDomain(forName: domain)
     print("Rendered three previews from fictional fixtures only.")
 }
