@@ -28,6 +28,15 @@ fi
 case "$SIGNING_MODE" in
     persistent) python3 tools/signing.py sign "$STAGED_APP" ;;
     adhoc) codesign --force --sign - "$STAGED_APP" ;;
+    pinned)
+        : "${WINDOWRAIL_SIGNING_IDENTITY:?Set WINDOWRAIL_SIGNING_IDENTITY}"
+        if [[ ! "$WINDOWRAIL_SIGNING_IDENTITY" =~ '^[0-9a-fA-F]{40}$' ]]; then print -u2 "Expected certificate SHA-1 fingerprint"; exit 1; fi
+        requirement="identifier \"local.windowrail.app\" and certificate leaf = H\"$WINDOWRAIL_SIGNING_IDENTITY\""
+        sign_args=(--force --sign "$WINDOWRAIL_SIGNING_IDENTITY" --timestamp=none --requirements "=designated => $requirement")
+        if [[ -n "${WINDOWRAIL_KEYCHAIN:-}" ]]; then sign_args+=(--keychain "$WINDOWRAIL_KEYCHAIN"); fi
+        codesign "${sign_args[@]}" "$STAGED_APP"
+        codesign --verify --strict -R "= $requirement" "$STAGED_APP"
+        ;;
     identity)
         : "${WINDOWRAIL_SIGNING_IDENTITY:?Set WINDOWRAIL_SIGNING_IDENTITY}"
         sign_args=(--force --sign "$WINDOWRAIL_SIGNING_IDENTITY" --options runtime --timestamp)

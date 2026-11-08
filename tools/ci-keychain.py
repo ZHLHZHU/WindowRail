@@ -24,6 +24,13 @@ try:
         identity = os.environ['APPLE_SIGNING_IDENTITY'].strip()
         if not re.fullmatch('[0-9a-fA-F]{40}', identity):
             raise ValueError('APPLE_SIGNING_IDENTITY must be the signing certificate SHA-1 fingerprint')
+        mode = os.environ.get('WINDOWRAIL_RELEASE_SIGNING_MODE', 'pinned')
+        if mode not in ('pinned', 'identity'):
+            raise ValueError('Unsupported release signing mode')
+        if mode == 'pinned':
+            pinned = (Path(__file__).resolve().parents[1] / 'Resources/release-signing.sha1').read_text().strip()
+            if identity.upper() != pinned.upper():
+                raise ValueError('Release certificate does not match the committed fingerprint')
         password = secrets.token_urlsafe(40)
         certificate.write_bytes(base64.b64decode(''.join(os.environ['APPLE_CERTIFICATE_P12_BASE64'].split()), validate=True))
         certificate.chmod(0o600)
@@ -37,7 +44,7 @@ try:
             run('/usr/bin/security', 'list-keychains', '-d', 'user', '-s', *old_search)
             certificate.unlink(missing_ok=True)
         with open(os.environ['GITHUB_ENV'], 'a') as out:
-            out.write(f'WINDOWRAIL_SIGNING_MODE=identity\nWINDOWRAIL_SIGNING_IDENTITY={identity}\nWINDOWRAIL_KEYCHAIN={keychain}\n')
+            out.write(f'WINDOWRAIL_SIGNING_MODE={mode}\nWINDOWRAIL_SIGNING_IDENTITY={identity}\nWINDOWRAIL_KEYCHAIN={keychain}\n')
         print('CI signing identity imported.')
     else:
         raise ValueError('Usage: ci-keychain.py import|cleanup')

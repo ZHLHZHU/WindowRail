@@ -36,24 +36,29 @@ tools/          签名与打包脚本
 | `WINDOWRAIL_ARCHS` | `arm64`、`x86_64`，或 `arm64 x86_64` |
 | `WINDOWRAIL_OUTPUT_APP` | 输出 `.app` 的完整路径 |
 | `WINDOWRAIL_VERSION` | `0.1.0` 格式的应用版本 |
-| `WINDOWRAIL_SIGNING_MODE` | `persistent`（默认）、`adhoc`、`identity` |
-| `WINDOWRAIL_SIGNING_IDENTITY` | `identity` 模式的签名身份 |
+| `WINDOWRAIL_SIGNING_MODE` | `persistent`（默认）、`adhoc`、`pinned`、`identity` |
+| `WINDOWRAIL_SIGNING_IDENTITY` | `pinned` / `identity` 模式的签名身份 |
 | `WINDOWRAIL_KEYCHAIN` | 可选的签名钥匙串路径 |
 
 `./tools/package.sh` 将应用打包到 `dist/` 并生成 SHA-256 校验文件。
 
 ## 发布签名
 
-CI 默认显式使用 `adhoc`，不访问本机签名目录。因此未配置发布证书时，CI 构建的不同版本可能触发重新授权；这与本机构建复用固定身份的行为不同。
+本仓库 master、tag 与手动构建复用独立的发布证书，以证书指纹和 Bundle ID 固定 designated requirement。PR 构建使用 `adhoc`，不读取签名 Secrets。
 
-如需签名发布，在 GitHub 仓库配置：
+GitHub 仓库配置：
 
-- Actions variable：`WINDOWRAIL_SIGNED_RELEASE=true`。
-- Secret `APPLE_CERTIFICATE_P12_BASE64`：导出的发布证书及私钥 P12 文件的 Base64 内容。
+- Actions variable `WINDOWRAIL_SIGNED_RELEASE=true`。
+- Actions variable `WINDOWRAIL_RELEASE_SIGNING_MODE=pinned`。
+- Secret `APPLE_CERTIFICATE_P12_BASE64`：发布证书及私钥 P12 的 Base64 内容。
 - Secret `APPLE_CERTIFICATE_PASSWORD`：P12 密码。
-- Secret `APPLE_SIGNING_IDENTITY`：证书的 40 位 SHA-1 指纹。
+- Secret `APPLE_SIGNING_IDENTITY`：证书的 40 位 SHA-1 指纹，必须与 `Resources/release-signing.sha1` 一致。
 
-请使用专门的分发证书，不要上传本机 WindowRail 的开发签名资料。CI 在临时钥匙串中导入证书，构建完成后清理。启用签名但缺少证书时会失败，不会静默降级。当前流程不包含 Apple 公证；Developer ID 签名本身不等于完成公证。
+证书应只生成一次，后续复用同一份备份；不要在每次 CI 中生成证书。签名资料缺失、指纹不符或导入失败时构建失败，不会静默降级。仅公开证书指纹，私钥和密码不得提交。本机开发签名与发布签名分开保存。
+
+从 v1.0.0 的 ad-hoc 包或本机开发包首次换到固定发布签名时，需要重新授权一次。之后应保持应用路径、Bundle ID 与签名身份不变；系统重置权限或更换证书仍可能需要重新授权。固定签名不等于 Developer ID 或 Apple 公证，当前流程不包含公证。
+
+若以后使用 Developer ID，设置 `WINDOWRAIL_RELEASE_SIGNING_MODE=identity` 并配置对应证书；这种身份迁移需单独验证权限行为。
 
 ## master 与 tag
 

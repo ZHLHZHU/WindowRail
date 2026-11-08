@@ -47,9 +47,21 @@ jobs:
       - name: Test
         run: ./tools/test.sh
 
-      - name: Import optional release identity
-        if: startsWith(github.ref, 'refs/tags/') && vars.WINDOWRAIL_SIGNED_RELEASE == 'true'
+      - name: Require fixed signing for version releases
+        if: startsWith(github.ref, 'refs/tags/')
         env:
+          SIGNED_RELEASE_ENABLED: ${{ vars.WINDOWRAIL_SIGNED_RELEASE }}
+        run: |
+          if [[ "$SIGNED_RELEASE_ENABLED" != true ]]; then
+            echo "Configure the release signing identity before publishing a version."
+            exit 1
+          fi
+
+      # PR code never receives signing credentials, including same-repository PRs.
+      - name: Import fixed signing identity
+        if: github.event_name != 'pull_request' && vars.WINDOWRAIL_SIGNED_RELEASE == 'true'
+        env:
+          WINDOWRAIL_RELEASE_SIGNING_MODE: ${{ vars.WINDOWRAIL_RELEASE_SIGNING_MODE }}
           APPLE_CERTIFICATE_P12_BASE64: ${{ secrets.APPLE_CERTIFICATE_P12_BASE64 }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
