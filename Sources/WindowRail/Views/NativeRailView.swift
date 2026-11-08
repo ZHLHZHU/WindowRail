@@ -138,9 +138,11 @@ final class NativeRailView: NSView {
         document.setFrameSize(NSSize(width: bounds.width, height: preferredHeight))
     }
     private func render(groups: [SidebarGroup], trusted: Bool) {
-        let next = "\(L10n.currentLanguage):\(trusted):" + groups.map { group in
-            group.id + ":" + group.title + ":" + group.entries.map { $0.id + ":" + $0.title }.joined(separator: "\u{1f}")
-        }.joined(separator: "\u{1e}")
+        let groupSignatures: [String] = groups.map { group in
+            let entrySignatures = group.entries.map { "\($0.id):\($0.title)" }
+            return "\(group.id):\(group.title):" + entrySignatures.joined(separator: "\u{1f}")
+        }
+        let next = "\(L10n.currentLanguage):\(trusted):" + groupSignatures.joined(separator: "\u{1e}")
         guard signature != next else { return }
         signature = next
         let oldOffset = scroll.contentView.bounds.origin.y
