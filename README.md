@@ -1,5 +1,7 @@
 # WindowRail
 
+<img src="docs/images/app-icon.png" alt="WindowRail" width="96">
+
 English | [简体中文](README.zh-CN.md)
 
 A lightweight window switcher for macOS. Find windows in the edge sidebar or switch with ⌘Tab and ⌘`. Includes desktop groups, a current-window marker, dark mode, English and Chinese language switching, launch at login, and a menu bar icon toggle.

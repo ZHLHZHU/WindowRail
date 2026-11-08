@@ -76,3 +76,9 @@ GitHub 仓库配置：
 - `./tools/test.sh` 会检查缺失、重复、空文案、类型化 key、格式占位符和语言元数据，并用错误翻译样本验证检查器确实阻止这些问题。
 
 运行时单条翻译缺失时回退到英文；不支持的语言选择回退为跟随系统。设置页语言选择保存于 `appLanguage`，即时刷新设置页、菜单、侧栏分组和窗口切换面板。窗口标题与第三方应用名称保留原始内容。
+
+## 图标资源
+
+`Sources/WindowRail/Views/AppArtwork.swift` 保存轨道和双窗口的矢量路径，菜单栏使用 18pt template image，由系统适配明暗外观。应用图标由同一轮廓生成蓝底白线版本。
+
+修改轮廓后运行 `./tools/render-icons.sh`，更新 `Sources/WindowRail/Resources/WindowRail.icns` 和 README 的 PNG 预览。ICNS 包含 16、32、128、256、512pt 及各自 @2x 的全部表示。`build.sh` 在签名前确认 `CFBundleIconFile` 指定的资源已打入应用。

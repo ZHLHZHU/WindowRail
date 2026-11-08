@@ -23,7 +23,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         status = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        status.button?.image = NSImage(systemSymbolName: "sidebar.left", accessibilityDescription: "WindowRail")
+        status.button?.image = AppArtwork.menuBarIcon()
         status.isVisible = preferences.showMenuBarIcon
         preferences.onMenuBarVisibilityChanged = { [weak self] visible in self?.status.isVisible = visible }
         sidebar = panel(width: 174, height: 700)

@@ -1,5 +1,7 @@
 # WindowRail
 
+<img src="docs/images/app-icon.png" alt="WindowRail" width="96">
+
 [English](README.md) | 简体中文
 
 轻量的 macOS 窗口切换工具。用贴边侧栏找到窗口，用 ⌘Tab 和 ⌘` 快速切换。支持桌面分组、当前窗口标记、深色模式、中英文切换、自启动和菜单栏图标设置。

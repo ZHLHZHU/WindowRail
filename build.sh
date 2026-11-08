@@ -21,6 +21,10 @@ lipo -create "${binaries[@]}" -output "$STAGED_APP/Contents/MacOS/WindowRail"
 cp Resources/Info.plist "$STAGED_APP/Contents/Info.plist"
 mkdir -p "$STAGED_APP/Contents/Resources"
 ditto Sources/WindowRail/Resources "$STAGED_APP/Contents/Resources"
+ICON_FILE=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIconFile' "$STAGED_APP/Contents/Info.plist")
+if [[ ! -f "$STAGED_APP/Contents/Resources/$ICON_FILE" ]]; then
+    print -u2 "Missing application icon: $ICON_FILE"; exit 1
+fi
 if [[ -n "${WINDOWRAIL_VERSION:-}" ]]; then
     if [[ ! "$WINDOWRAIL_VERSION" =~ '^[0-9]+\.[0-9]+\.[0-9]+$' ]]; then print -u2 "Expected a numeric x.y.z version"; exit 1; fi
     /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $WINDOWRAIL_VERSION" "$STAGED_APP/Contents/Info.plist"
