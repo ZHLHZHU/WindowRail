@@ -10,6 +10,10 @@ private final class EmptyRailCell: NSButtonCell {
 }
 private final class RailButton: NSButton {
     var actionBlock: (() -> Void)?
+    var contextMenu: (() -> NSMenu?)?
+    override func menu(for event: NSEvent) -> NSMenu? {
+        contextMenu?() ?? super.menu(for: event)
+    }
     private let label = NSTextField(labelWithString: "")
     private let iconView = NSImageView()
     private var tracking: NSTrackingArea?
@@ -87,13 +91,15 @@ private final class RailButton: NSButton {
 }
 
 /// Explicit row frames keep long AX titles from changing the sidebar's layout.
-final class NativeRailView: NSView {
+final class NativeRailView: NSView, NSMenuDelegate {
     private let scroll = NSScrollView()
     private let document = TopDownView()
     private let model: WindowModel
     private let settings: () -> Void
     private var subscription: AnyCancellable?
     private var signature = ""
+    private(set) var isTrackingRowMenu = false
+    private var pendingRender: (groups: [SidebarGroup], trusted: Bool)?
     private(set) var preferredHeight: CGFloat = 14
     var onContentChanged: (() -> Void)?
 
@@ -137,7 +143,48 @@ final class NativeRailView: NSView {
         scroll.frame = bounds
         document.setFrameSize(NSSize(width: bounds.width, height: preferredHeight))
     }
+    private func rowMenu(for entry: WindowEntry) -> NSMenu {
+        let menu = NSMenu()
+        menu.autoenablesItems = false
+        menu.delegate = self
+        for command in WindowCommand.availableItems(for: entry) {
+            let title = command == .quit
+                ? L10n.format(command.titleKey, entry.app.localizedName ?? L10n.text(.appFallback))
+                : L10n.text(command.titleKey)
+            let item = menu.addItem(withTitle: title, action: #selector(performWindowCommand(_:)), keyEquivalent: "")
+            item.target = self
+            item.tag = command.rawValue
+            item.representedObject = entry
+            item.isEnabled = command.isEnabled(for: entry)
+        }
+        return menu
+    }
+
+    func menuWillOpen(_ menu: NSMenu) {
+        isTrackingRowMenu = true
+    }
+
+    func menuDidClose(_ menu: NSMenu) {
+        isTrackingRowMenu = false
+        if let pending = pendingRender {
+            pendingRender = nil
+            render(groups: pending.groups, trusted: pending.trusted)
+        }
+    }
+
+    @objc private func performWindowCommand(_ sender: NSMenuItem) {
+        guard let entry = sender.representedObject as? WindowEntry,
+              let command = WindowCommand(rawValue: sender.tag) else { return }
+        command.perform(on: entry)
+        model.refresh()
+    }
+
     private func render(groups: [SidebarGroup], trusted: Bool) {
+        // AppKit tracks the popup in a nested loop; keep its source row attached.
+        if isTrackingRowMenu {
+            pendingRender = (groups, trusted)
+            return
+        }
         let groupSignatures: [String] = groups.map { group in
             let entrySignatures = group.entries.map { "\($0.id):\($0.title)" }
             return "\(group.id):\(group.title):" + entrySignatures.joined(separator: "\u{1f}")
@@ -158,6 +205,7 @@ final class NativeRailView: NSView {
             y += 28
                 for entry in group.entries {
                     let button = RailButton(title: entry.title) { [weak model] in model?.activate(entry) }
+                    button.contextMenu = { [weak self] in self?.rowMenu(for: entry) }
                     button.frame = NSRect(x: 5, y: y, width: 164, height: 26)
                     if let icon = entry.app.icon?.copy() as? NSImage {
                         icon.size = NSSize(width: 20, height: 20)

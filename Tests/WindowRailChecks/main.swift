@@ -168,3 +168,40 @@ let packagedBundle = Bundle(path: packaged.path)!
 expectEqual(L10n.languages(in: packagedBundle), ["en", "zh-Hans"])
 expectEqual(L10n.availableLanguages.count, Set(L10n.availableLanguages).count)
 print("PASS: packaged-app languages are unique even when metadata and resources overlap")
+
+// Inspect the native menus attached to the rows without dispatching a click or
+// sending any command to a running application.
+do {
+    let saved = L10n.languageChoice
+    L10n.setLanguage("en")
+    defer { L10n.setLanguage(saved) }
+    let model = WindowModel()
+    model.trusted = true
+    let window = WindowEntry(id: "test-window", pid: getpid(), app: .current,
+                             window: AXUIElementCreateSystemWide(), title: "Fixture Window")
+    let app = WindowEntry(id: "test-app", pid: getpid(), app: .current,
+                          window: nil, title: "Fixture App")
+    model.groups = [SidebarGroup(id: "fixture", title: "Fixture", entries: [window, app])]
+    let rail = NativeRailView(model: model, settings: {})
+    RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
+    func buttons(in view: NSView) -> [NSButton] {
+        if let button = view as? NSButton { return [button] }
+        return view.subviews.flatMap(buttons(in:))
+    }
+    let event = NSEvent.mouseEvent(with: .rightMouseDown, location: .zero, modifierFlags: [],
+        timestamp: 0, windowNumber: 0, context: nil, eventNumber: 0, clickCount: 1, pressure: 0)!
+    let rows = buttons(in: rail)
+    let windowMenu = rows.first { $0.title == window.title }!.menu(for: event)!
+    let appMenu = rows.first { $0.title == app.title }!.menu(for: event)!
+    expectEqual(windowMenu.items.map(\.tag), [WindowCommand.close.rawValue, WindowCommand.quit.rawValue, WindowCommand.minimize.rawValue])
+    expectEqual(appMenu.items.map(\.tag), [WindowCommand.quit.rawValue])
+    expectTrue(windowMenu.items.allSatisfy { ($0.representedObject as? WindowEntry)?.id == window.id })
+    expectEqual((appMenu.items.first?.representedObject as? WindowEntry)?.id, app.id)
+    expectFalse(windowMenu.items[0].isEnabled)
+    expectFalse(windowMenu.items[2].isEnabled)
+    windowMenu.delegate?.menuWillOpen?(windowMenu)
+    expectTrue(rail.isTrackingRowMenu)
+    windowMenu.delegate?.menuDidClose?(windowMenu)
+    expectFalse(rail.isTrackingRowMenu)
+    print("PASS: native sidebar menus keep the clicked target and disable unsupported window actions")
+}

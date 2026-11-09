@@ -27,3 +27,6 @@
 "app.githubHelp" = "Open the WindowRail repository on GitHub";
 "language.title" = "Language";
 "language.system" = "Follow System";
+"window.close" = "Close Window";
+"window.quitApp" = "Quit %@";
+"window.minimize" = "Minimize Window";

@@ -198,6 +198,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
     func updateEdgeReveal() {
+        guard !nativeRail.isTrackingRowMenu else { return }
         if CommandLine.arguments.contains("--ui-test") { return }
         if model.selecting {
             edgeReveal.setVisible(false)

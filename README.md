@@ -10,7 +10,7 @@ A lightweight window switcher for macOS. Find windows in the edge sidebar or swi
 
 ### Sidebar
 
-Reveal the sidebar at the screen edge and click a window to activate it.
+Reveal the sidebar at the screen edge and click a window to activate it. Right-click a row to close or minimize its window, or quit the app.
 
 <img src="docs/images/en/sidebar.png" alt="Sidebar with app, full-screen and desktop groups" width="220">
 

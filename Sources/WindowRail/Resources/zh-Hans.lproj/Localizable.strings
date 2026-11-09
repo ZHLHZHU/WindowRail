@@ -27,3 +27,6 @@
 "app.githubHelp" = "在 GitHub 上查看 WindowRail 项目";
 "language.title" = "语言";
 "language.system" = "跟随系统";
+"window.close" = "关闭窗口";
+"window.quitApp" = "退出 %@";
+"window.minimize" = "最小化窗口";
