@@ -17,8 +17,13 @@ final class WindowActivator {
             reopen(entry.app, token: token)
             return
         }
-        AXUIElementSetAttributeValue(window, kAXMinimizedAttribute as CFString, kCFBooleanFalse)
-        let accepted = entry.app.activate(options: [])
+        AXUIElementSetMessagingTimeout(window, 0.15)
+        let wasMinimized = (attribute(window, kAXMinimizedAttribute) as? Bool) == true
+        if wasMinimized {
+            AXUIElementSetAttributeValue(window, kAXMinimizedAttribute as CFString, kCFBooleanFalse)
+        }
+        let alreadyActive = entry.app.isActive
+        let accepted = alreadyActive || entry.app.activate(options: [])
         log.debug("Window activation request pid=\(entry.pid) accepted=\(accepted)")
         raise(window, app: entry.app)
         // Let the target finish activation / unminimizing before raising again.
@@ -33,7 +38,9 @@ final class WindowActivator {
     private func raise(_ window: AXUIElement, app: NSRunningApplication) {
         let root = AXUIElementCreateApplication(app.processIdentifier)
         AXUIElementSetMessagingTimeout(root, 0.2)
-        AXUIElementSetAttributeValue(root, kAXFrontmostAttribute as CFString, kCFBooleanTrue)
+        if !app.isActive {
+            AXUIElementSetAttributeValue(root, kAXFrontmostAttribute as CFString, kCFBooleanTrue)
+        }
         AXUIElementSetAttributeValue(window, kAXMainAttribute as CFString, kCFBooleanTrue)
         let result = AXUIElementPerformAction(window, kAXRaiseAction as CFString)
         log.debug("Window raise pid=\(app.processIdentifier) result=\(result.rawValue)")

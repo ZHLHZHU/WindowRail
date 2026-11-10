@@ -54,6 +54,42 @@ final class WindowRailChecks {
         expectTrue(model.choices.isEmpty)
     }
 
+    func testRapidSwitchingUsesLiveFocusAndRecentOrder() {
+        let model = WindowModel()
+        model.entries = [entry("a"), entry("b"), entry("c")]
+        model.recent = ["c", "b", "a"]
+
+        model.beginSelection(sameApp: false, frontPID: getpid(), focusedID: "c", backwards: false)
+        expectEqual(model.choices[model.selection].id, "b")
+        model.moveSelection(backwards: false)
+        expectEqual(model.choices[model.selection].id, "a")
+        model.moveSelection(backwards: true)
+        expectEqual(model.choices[model.selection].id, "b")
+        model.finish(cancel: true)
+
+        // Window B has just become focused, but the background list has not refreshed.
+        model.recent = ["b", "c", "a"]
+        model.beginSelection(sameApp: false, frontPID: getpid(), focusedID: "b", backwards: false)
+        expectEqual(model.choices[model.selection].id, "c")
+        model.finish(cancel: true)
+
+        model.beginSelection(sameApp: false, frontPID: getpid(), focusedID: "a", backwards: false)
+        expectEqual(model.choices[model.selection].id, "b")
+        model.finish(cancel: true)
+
+        model.entries.reverse()
+        model.beginSelection(sameApp: true, frontPID: getpid(), focusedID: "b", backwards: false)
+        expectEqual(model.originWindowID, "b")
+        expectEqual(model.choices[model.selection].id, "c")
+        model.finish(cancel: true)
+        model.beginSelection(sameApp: true, frontPID: getpid(), focusedID: "c", backwards: false)
+        expectEqual(model.choices[model.selection].id, "a")
+        model.finish(cancel: true)
+        model.beginSelection(sameApp: true, frontPID: getpid(), focusedID: "a", backwards: true)
+        expectEqual(model.choices[model.selection].id, "c")
+        model.finish(cancel: true)
+    }
+
     func testArrowRoutingPreservesAppShortcutsOutsidePicker() {
         _ = NSApplication.shared
         let controller = AppDelegate()
@@ -100,10 +136,11 @@ let checks = WindowRailChecks()
 checks.testSpaceGroupingDoesNotInventMembershipOrDuplicatePinnedWindows()
 checks.testUnavailableSpaceAPIUsesExplicitFallback()
 checks.testSelectionWrapsWithoutMovingCurrentWindowMarker()
+checks.testRapidSwitchingUsesLiveFocusAndRecentOrder()
 checks.testArrowRoutingPreservesAppShortcutsOutsidePicker()
 checks.testExitGracePeriodAndReentry()
 checks.testMenuBarPreferencePersistsAndNotifies()
-print("PASS: 6 regression checks (grouping, fallback, origin marker, key routing, edge delay, preferences)")
+print("PASS: 7 regression checks (grouping, fallback, origin marker, rapid switching, key routing, edge delay, preferences)")
 
 expectEqual(L10n.text(.settingsOpen, language: "en"), "Settings…")
 expectEqual(L10n.text(.settingsOpen, language: "zh-Hans"), "设置…")

@@ -163,6 +163,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         positionSidebar()
     }
     func showSwitcher() {
+        guard !switcher.isVisible else { return }
         let mouse = NSEvent.mouseLocation
         let screen = NSScreen.screens.first { $0.frame.contains(mouse) } ?? NSScreen.main
         guard let frame = screen?.visibleFrame else { return }

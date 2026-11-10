@@ -19,7 +19,7 @@ final class WindowModel: ObservableObject {
     private let scanQueue = DispatchQueue(label: "local.windowrail.scan", qos: .userInitiated)
     private var refreshInProgress = false
     var lastFocused: String?
-    var frozenPID: pid_t?
+    private var activationRevision = 0
     var onSelectionChange: (() -> Void)?
     var onEndSelection: (() -> Void)?
 
@@ -29,6 +29,7 @@ final class WindowModel: ObservableObject {
         refreshInProgress = true
         let trusted = self.trusted
         let savedMembership = previousMembership
+        let scanRevision = activationRevision
         scanQueue.async { [self] in
             var scanMembership = savedMembership
             spaceCatalog.refresh()
@@ -68,7 +69,7 @@ final class WindowModel: ObservableObject {
                 let result = scannedEntries
                 let focusedID = scannedFocus
                 previousMembership = scannedMembership
-                if let focusedID, focusedID != lastFocused {
+                if scanRevision == activationRevision, let focusedID, focusedID != lastFocused {
                     recent.removeAll { $0 == focusedID }
                     recent.insert(focusedID, at: 0)
                     lastFocused = focusedID
@@ -106,14 +107,48 @@ final class WindowModel: ObservableObject {
     }
     func step(sameApp: Bool, backwards: Bool) {
         guard trusted else { return }
-        if !selecting {
-            frozenPID = NSWorkspace.shared.frontmostApplication?.processIdentifier
-            originWindowID = sameApp ? focusedWindowID(for: frozenPID) : nil
-            choices = entries.filter { !sameApp || $0.pid == frozenPID }
-            guard !choices.isEmpty else { originWindowID = nil; return }
-            selection = originWindowID.flatMap { id in choices.firstIndex { $0.id == id } } ?? 0
-            selecting = true
+        if selecting {
+            moveSelection(backwards: backwards)
+            return
         }
+        let frontPID = NSWorkspace.shared.frontmostApplication?.processIdentifier
+        beginSelection(sameApp: sameApp, frontPID: frontPID,
+                       focusedID: focusedWindowID(for: frontPID), backwards: backwards)
+    }
+
+    func beginSelection(sameApp: Bool, frontPID: pid_t?, focusedID: String?, backwards: Bool) {
+        let candidates = entries.filter { !sameApp || $0.pid == frontPID }
+        guard !candidates.isEmpty else { return }
+
+        if sameApp {
+            // Keep the cycle order stable as each window becomes the most recent.
+            choices = candidates.sorted { $0.id < $1.id }
+        } else {
+            let rank = Dictionary(uniqueKeysWithValues: recent.enumerated().map { ($0.element, $0.offset) })
+            choices = candidates.enumerated().sorted { first, second in
+                let a = rank[first.element.id] ?? Int.max
+                let b = rank[second.element.id] ?? Int.max
+                return a == b ? first.offset < second.offset : a < b
+            }.map(\.element)
+        }
+
+        let frontChoices = choices.filter { $0.pid == frontPID }
+        let currentID = focusedID
+            ?? recent.first { id in frontChoices.contains { $0.id == id } }
+            ?? frontChoices.first?.id
+        originWindowID = sameApp ? currentID : nil
+        if let index = choices.firstIndex(where: { $0.id == currentID }) {
+            if !sameApp && index != 0 {
+                let current = choices.remove(at: index)
+                choices.insert(current, at: 0)
+                selection = 0
+            } else {
+                selection = index
+            }
+        } else {
+            selection = backwards ? 0 : choices.count - 1
+        }
+        selecting = true
         moveSelection(backwards: backwards)
     }
     private func focusedWindowID(for pid: pid_t?) -> String? {
@@ -141,9 +176,11 @@ final class WindowModel: ObservableObject {
         if !cancel, let target { activate(target) }
     }
     func activate(_ entry: WindowEntry) {
+        activationRevision += 1
+        lastFocused = entry.id
         onActivate?()
-        activator.activate(entry)
         recent.removeAll { $0 == entry.id }
         recent.insert(entry.id, at: 0)
+        activator.activate(entry)
     }
 }
