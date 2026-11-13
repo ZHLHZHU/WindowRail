@@ -78,16 +78,51 @@ final class WindowRailChecks {
         model.finish(cancel: true)
 
         model.entries.reverse()
-        model.beginSelection(sameApp: true, frontPID: getpid(), focusedID: "b", backwards: false)
-        expectEqual(model.originWindowID, "b")
+        model.recent = ["b", "a", "c"]
+        for (focused, expected) in [("b", "a"), ("a", "b"), ("b", "a")] {
+            model.beginSelection(sameApp: true, frontPID: getpid(), focusedID: focused, backwards: false)
+            expectEqual(model.originWindowID, focused)
+            expectEqual(model.choices[model.selection].id, expected)
+            model.finish(cancel: true)
+            model.recent = [expected, focused, "c"]
+        }
+
+        model.beginSelection(sameApp: true, frontPID: getpid(), focusedID: "a", backwards: false)
+        expectEqual(model.choices[model.selection].id, "b")
+        model.moveSelection(backwards: false)
         expectEqual(model.choices[model.selection].id, "c")
-        model.finish(cancel: true)
-        model.beginSelection(sameApp: true, frontPID: getpid(), focusedID: "c", backwards: false)
-        expectEqual(model.choices[model.selection].id, "a")
         model.finish(cancel: true)
         model.beginSelection(sameApp: true, frontPID: getpid(), focusedID: "a", backwards: true)
         expectEqual(model.choices[model.selection].id, "c")
         model.finish(cancel: true)
+    }
+
+    func testSameAppPickerCommitsOnlyOnRelease() {
+        var activated: [String] = []
+        let model = WindowModel(activateWindow: { activated.append($0.id) })
+        model.entries = [entry("c"), entry("a"), entry("b")]
+        model.recent = ["a", "b", "c"]
+        var panelUpdates = 0
+        model.onSelectionChange = { panelUpdates += 1 }
+        for (focused, previous) in [("a", "b"), ("b", "a"), ("a", "b")] {
+            let before = activated.count
+            expectTrue(model.beginSelection(sameApp: true, frontPID: getpid(), focusedID: focused,
+                                            backwards: false))
+            expectTrue(model.selecting)
+            expectEqual(model.choices[model.selection].id, previous)
+            expectEqual(activated.count, before)
+            model.finish()
+            expectEqual(activated.last, previous)
+        }
+        expectEqual(activated, ["b", "a", "b"])
+        expectEqual(panelUpdates, 3)
+
+        // A scan that completes after release commits the buffered choice without flashing a panel.
+        model.beginSelection(sameApp: true, frontPID: getpid(), focusedID: "b",
+                             backwards: false, steps: 2, present: false)
+        model.finish()
+        expectEqual(activated.last, "c")
+        expectEqual(panelUpdates, 3)
     }
 
     func testArrowRoutingPreservesAppShortcutsOutsidePicker() {
@@ -107,6 +142,231 @@ final class WindowRailChecks {
         expectNil(controller.handle(type: .keyDown, event: key(53)))
         expectFalse(controller.model.selecting)
         expectNotNil(controller.handle(type: .keyDown, event: key(126)))
+    }
+
+    func testHeldCommandRepaintsEverySelection() {
+        _ = NSApplication.shared
+        let controller = AppDelegate()
+        let model = controller.model
+        model.trusted = true
+        model.entries = [entry("a"), entry("b"), entry("c")]
+        model.recent = ["a", "b", "c"]
+        let picker = NativeSwitcherView(frame: NSRect(x: 0, y: 0, width: 460, height: 150))
+        let panel = NSPanel(contentRect: picker.frame, styleMask: [.borderless, .nonactivatingPanel],
+                            backing: .buffered, defer: false)
+        panel.contentView = picker
+        model.onSelectionChange = { picker.update(from: model) }
+        model.beginSelection(sameApp: true, frontPID: getpid(), focusedID: "a", backwards: false)
+        func pixels() -> Data {
+            let bitmap = picker.bitmapImageRepForCachingDisplay(in: picker.bounds)!
+            picker.cacheDisplay(in: picker.bounds, to: bitmap)
+            return bitmap.representation(using: .png, properties: [:])!
+        }
+        for appearance in [NSAppearance.Name.aqua, .darkAqua] {
+            picker.appearance = NSAppearance(named: appearance)
+            picker.update(from: model)
+            var previousPixels = pixels()
+            // No run-loop pump between keys: each callback must repaint directly.
+            for index in 0..<40 {
+                let code: CGKeyCode = index % 4 == 0 ? 125 : 50
+                let event = CGEvent(keyboardEventSource: nil, virtualKey: code, keyDown: true)!
+                event.flags = index % 3 == 0 ? [.maskCommand, .maskShift] : [.maskCommand]
+                let backwards = code == 50 && event.flags.contains(.maskShift)
+                let expected = (model.selection + (backwards ? -1 : 1) + 3) % 3
+                expectNil(controller.handle(type: .keyDown, event: event))
+                expectEqual(model.selection, expected)
+                expectEqual(picker.highlightedIndices, [expected])
+                let nextPixels = pixels()
+                expectFalse(nextPixels == previousPixels)
+                previousPixels = nextPixels
+                let up = CGEvent(keyboardEventSource: nil, virtualKey: code, keyDown: false)!
+                up.flags = [.maskCommand]
+                expectNil(controller.handle(type: .keyUp, event: up))
+            }
+        }
+        model.finish(cancel: true)
+    }
+
+    func testPickerMouseConfirmsClickedRowOnlyOnce() {
+        _ = NSApplication.shared
+        var activated: [String] = []
+        var closed = 0
+        let model = WindowModel(activateWindow: { activated.append($0.id) })
+        model.entries = [entry("a"), entry("b"), entry("c")]
+        model.recent = ["a", "b", "c"]
+        model.onEndSelection = { closed += 1 }
+        let picker = NativeSwitcherView(frame: NSRect(x: 0, y: 0, width: 460, height: 180))
+        let panel = NSPanel(contentRect: picker.frame, styleMask: [.borderless, .nonactivatingPanel],
+                            backing: .buffered, defer: false)
+        panel.contentView = picker
+        model.onSelectionChange = { picker.update(from: model) }
+        func start() {
+            model.recent = ["a", "b", "c"]
+            model.beginSelection(sameApp: true, frontPID: getpid(), focusedID: "a", backwards: false)
+        }
+        let mouse = NSEvent.mouseEvent(with: .leftMouseDown, location: .zero,
+            modifierFlags: [.command], timestamp: 0, windowNumber: panel.windowNumber,
+            context: nil, eventNumber: 0, clickCount: 1, pressure: 1)!
+        // The icon, title and empty part of the row all receive the first click
+        // even though the nonactivating switcher is not the key window.
+        for x: CGFloat in [27, 100, 350] {
+            start()
+            let point = picker.convert(NSPoint(x: x, y: 44 + 2 * 29 + 13), to: picker.superview)
+            let target = picker.hitTest(point)!
+            expectEqual(target.accessibilityLabel(), "c")
+            expectTrue(target.acceptsFirstMouse(for: mouse))
+            expectFalse(target.mouseDownCanMoveWindow)
+            let count = activated.count
+            target.mouseDown(with: mouse)
+            expectEqual(activated.count, count + 1)
+            expectEqual(activated.last, "c")
+            expectFalse(model.selecting)
+            model.finish() // Command release after the click must not activate twice.
+            expectEqual(activated.count, count + 1)
+            expectFalse(target.accessibilityPerformPress()) // Stale/hidden row.
+        }
+        start()
+        let point = picker.convert(NSPoint(x: 350, y: 44 + 13), to: picker.superview)
+        let current = picker.hitTest(point)!
+        expectEqual(current.accessibilityLabel(), "a")
+        expectTrue(current.accessibilityPerformPress())
+        expectEqual(activated, ["c", "c", "c"])
+        expectEqual(closed, 4)
+    }
+
+    func testPickerHoverSelectsWithoutActivating() {
+        _ = NSApplication.shared
+        var activated: [String] = []
+        let model = WindowModel(activateWindow: { activated.append($0.id) })
+        model.entries = [entry("a"), entry("b"), entry("c")]
+        model.recent = ["a", "b", "c"]
+        let picker = NativeSwitcherView(frame: NSRect(x: 0, y: 0, width: 460, height: 180))
+        let panel = NSPanel(contentRect: picker.frame, styleMask: [.borderless, .nonactivatingPanel],
+                            backing: .buffered, defer: false)
+        panel.contentView = picker
+        model.onSelectionChange = { picker.update(from: model) }
+        model.beginSelection(sameApp: true, frontPID: getpid(), focusedID: "a", backwards: false)
+        let point = picker.convert(NSPoint(x: 100, y: 44 + 2 * 29 + 13), to: picker.superview)
+        let row = picker.hitTest(point)!
+        row.updateTrackingAreas()
+        expectTrue(row.trackingAreas.contains { $0.options.contains([.mouseMoved, .activeAlways, .inVisibleRect]) })
+        expectFalse(row.trackingAreas.filter { $0.options.contains(.mouseMoved) }
+            .contains { $0.options.contains(.mouseEnteredAndExited) })
+        expectEqual(picker.highlightedIndices, [1]) // Merely showing the panel keeps keyboard selection.
+        let move = NSEvent.mouseEvent(with: .mouseMoved, location: .zero,
+            modifierFlags: [.command], timestamp: 0, windowNumber: panel.windowNumber,
+            context: nil, eventNumber: 0, clickCount: 0, pressure: 0)!
+        row.mouseMoved(with: move)
+        expectEqual(model.selection, 2)
+        expectEqual(picker.highlightedIndices, [2])
+        expectEqual(model.originWindowID, "a")
+        expectTrue(activated.isEmpty)
+        model.moveSelection(backwards: true)
+        expectEqual(picker.highlightedIndices, [1])
+        row.mouseMoved(with: move)
+        model.finish()
+        expectEqual(activated, ["c"])
+        row.mouseMoved(with: move)
+        expectFalse(model.selecting)
+        expectEqual(activated, ["c"])
+    }
+
+    func testSearchFilteringAndConfirmation() {
+        expectTrue(WindowSearch.matches("edge 报告", title: "季度报告", applicationName: "Microsoft Edge"))
+        expectTrue(WindowSearch.matches("CAFE", title: "Café notes", applicationName: "Notes"))
+        expectTrue(WindowSearch.matches("abc", title: "ＡＢＣ", applicationName: "Editor"))
+        expectFalse(WindowSearch.matches("edge missing", title: "季度报告", applicationName: "Microsoft Edge"))
+        var activated: [String] = []
+        let model = WindowModel(activateWindow: { activated.append($0.id) })
+        model.entries = [entry("当前窗口"), entry("季度报告"), entry("会议记录")]
+        model.recent = model.entries.map(\.id)
+        model.beginSelection(sameApp: false, frontPID: getpid(), focusedID: "当前窗口", backwards: false)
+        expectTrue(model.beginSearch())
+        model.releaseCommand()
+        expectTrue(model.selecting)
+        expectTrue(activated.isEmpty)
+        model.updateSearch("报告")
+        expectEqual(model.choices.map(\.id), ["季度报告"])
+        model.updateSearch("不存在")
+        expectTrue(model.choices.isEmpty)
+        model.moveSelection(backwards: false)
+        model.updateSearch("  \n ")
+        expectEqual(model.choices.map(\.id), ["当前窗口", "季度报告", "会议记录"])
+        model.updateSearch(NSRunningApplication.current.localizedName ?? "")
+        expectEqual(model.choices.count, 3)
+        model.updateSearch("会议")
+        model.finish()
+        expectEqual(activated, ["会议记录"])
+        expectFalse(model.searching)
+        expectEqual(model.searchQuery, "")
+
+        // Filtering respects the same-app gesture's frozen scope.
+        model.entries.append(WindowEntry(id: "other", pid: getpid() + 1, app: .current,
+            window: nil, title: "另一应用的报告"))
+        model.beginSelection(sameApp: true, frontPID: getpid(), focusedID: "会议记录", backwards: false)
+        model.beginSearch()
+        model.updateSearch("报告")
+        expectEqual(model.choices.map(\.id), ["季度报告"])
+        model.finish(cancel: true)
+        expectEqual(activated, ["会议记录"])
+        model.beginSelection(sameApp: true, frontPID: getpid(), focusedID: "会议记录", backwards: false)
+        expectFalse(model.searching)
+        model.releaseCommand()
+        expectEqual(activated.count, 2)
+    }
+
+    func testSearchKeyRoutingAndInputMethod() {
+        _ = NSApplication.shared
+        let controller = AppDelegate()
+        let model = controller.model
+        model.trusted = true
+        model.entries = [entry("当前窗口"), entry("季度报告"), entry("会议记录")]
+        let picker = NativeSwitcherView(frame: NSRect(x: 0, y: 0, width: 460, height: 240))
+        let panel = controller.panel(width: 460, height: 240, searchable: true)
+        expectTrue(panel.canBecomeKey)
+        expectFalse(panel.canBecomeMain)
+        panel.contentView = picker
+        model.onSelectionChange = { picker.update(from: model) }
+        func key(_ code: CGKeyCode, flags: CGEventFlags = []) -> CGEvent {
+            let event = CGEvent(keyboardEventSource: nil, virtualKey: code, keyDown: true)!
+            event.flags = flags
+            return event
+        }
+        expectNotNil(controller.handle(type: .keyDown, event: key(3, flags: .maskCommand)))
+        model.beginSelection(sameApp: true, frontPID: getpid(), focusedID: "当前窗口", backwards: false)
+        expectNil(controller.handle(type: .keyDown, event: key(3, flags: .maskCommand)))
+        expectTrue(model.searching)
+        _ = controller.handle(type: .flagsChanged, event: key(55))
+        expectTrue(model.selecting)
+        // Input methods must receive Return, Escape and arrows before app commands.
+        for code: CGKeyCode in [36, 53, 125, 126, 0] {
+            expectNotNil(controller.handle(type: .keyDown, event: key(code)))
+        }
+        let field = picker.subviews.compactMap { $0 as? NSSearchField }.first!
+        expectFalse(field.isHidden)
+        let editor = NSTextView()
+        editor.setMarkedText("bao", selectedRange: NSRange(location: 3, length: 0),
+                             replacementRange: NSRange(location: NSNotFound, length: 0))
+        expectTrue(editor.hasMarkedText())
+        let previous = model.selection
+        for selector in [#selector(NSResponder.insertNewline(_:)), #selector(NSResponder.moveDown(_:)),
+                         #selector(NSResponder.cancelOperation(_:))] {
+            expectFalse(picker.control(field, textView: editor, doCommandBy: selector))
+        }
+        expectEqual(model.selection, previous)
+        expectTrue(model.selecting)
+        editor.unmarkText()
+        expectTrue(picker.control(field, textView: editor, doCommandBy: #selector(NSResponder.moveDown(_:))))
+        expectEqual(model.selection, (previous + 1) % 3)
+        field.stringValue = "报告"
+        picker.controlTextDidChange(Notification(name: NSControl.textDidChangeNotification, object: field))
+        expectEqual(model.choices.map(\.id), ["季度报告"])
+        field.stringValue = "no-match"
+        picker.controlTextDidChange(Notification(name: NSControl.textDidChangeNotification, object: field))
+        expectTrue(picker.control(field, textView: editor, doCommandBy: #selector(NSResponder.insertNewline(_:))))
+        expectTrue(model.selecting) // Enter on an empty result does not close or activate.
+        expectTrue(picker.control(field, textView: editor, doCommandBy: #selector(NSResponder.cancelOperation(_:))))
+        expectFalse(model.selecting)
     }
 
     func testExitGracePeriodAndReentry() {
@@ -137,10 +397,16 @@ checks.testSpaceGroupingDoesNotInventMembershipOrDuplicatePinnedWindows()
 checks.testUnavailableSpaceAPIUsesExplicitFallback()
 checks.testSelectionWrapsWithoutMovingCurrentWindowMarker()
 checks.testRapidSwitchingUsesLiveFocusAndRecentOrder()
+checks.testSameAppPickerCommitsOnlyOnRelease()
 checks.testArrowRoutingPreservesAppShortcutsOutsidePicker()
+checks.testHeldCommandRepaintsEverySelection()
+checks.testPickerMouseConfirmsClickedRowOnlyOnce()
+checks.testPickerHoverSelectsWithoutActivating()
+checks.testSearchFilteringAndConfirmation()
+checks.testSearchKeyRoutingAndInputMethod()
 checks.testExitGracePeriodAndReentry()
 checks.testMenuBarPreferencePersistsAndNotifies()
-print("PASS: 7 regression checks (grouping, fallback, origin marker, rapid switching, key routing, edge delay, preferences)")
+print("PASS: 13 regression checks (including search, IME key routing, picker repaints and mouse selection)")
 
 expectEqual(L10n.text(.settingsOpen, language: "en"), "Settings…")
 expectEqual(L10n.text(.settingsOpen, language: "zh-Hans"), "设置…")

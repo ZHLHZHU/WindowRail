@@ -15,7 +15,10 @@
 "window.current" = "当前";
 "window.currentAccessibility" = "当前窗口";
 "switcher.title" = "切换窗口";
-"switcher.help" = "松开 ⌘ 确认 · Esc 取消";
+"switcher.help" = "松开 ⌘ 确认 · ⌘F 搜索 · Esc 取消";
+"switcher.searchHelp" = "↑↓ 选择 · 回车确认 · Esc 取消";
+"switcher.searchPlaceholder" = "搜索应用名或窗口标题";
+"switcher.searchEmpty" = "没有匹配的窗口";
 "window.fallback" = "窗口";
 "app.fallback" = "应用";
 "group.apps" = "应用";

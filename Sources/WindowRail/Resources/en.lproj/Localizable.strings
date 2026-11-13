@@ -15,7 +15,10 @@
 "window.current" = "Current";
 "window.currentAccessibility" = "Current window";
 "switcher.title" = "Switch Windows";
-"switcher.help" = "Release ⌘ to switch · Esc to cancel";
+"switcher.help" = "Release ⌘ to switch · ⌘F search · Esc cancel";
+"switcher.searchHelp" = "↑↓ select · Return switch · Esc cancel";
+"switcher.searchPlaceholder" = "Search apps and window titles";
+"switcher.searchEmpty" = "No matching windows";
 "window.fallback" = "Window";
 "app.fallback" = "Application";
 "group.apps" = "Apps";

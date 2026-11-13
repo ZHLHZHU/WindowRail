@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 import ApplicationServices
+import OSLog
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     let model = WindowModel()
@@ -8,6 +9,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var preferencesWindow: NSWindow?
     var sidebar: NSPanel!
     var switcher: NSPanel!
+    var nativeSwitcher: NativeSwitcherView!
     var railMotion: RailMotion!
     var nativeRail: NativeRailView!
     var status: NSStatusItem!
@@ -20,7 +22,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var edgeTimer: Timer?
     var sidebarScreen: NSScreen?
     var consumedKeys = Set<Int64>()
+    private let keyboardLog = Logger(subsystem: "local.windowrail.app", category: "switchTiming")
     func applicationDidFinishLaunching(_ notification: Notification) {
+        SwitchTiming.record("Diagnostic tracing enabled")
         NSApp.setActivationPolicy(.accessory)
         status = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         status.button?.image = AppArtwork.menuBarIcon()
@@ -46,14 +50,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         positionSidebar()
         sidebar.isMovableByWindowBackground = false
         sidebar.orderOut(nil)
-        switcher = panel(width: 460, height: 500)
-        switcher.contentView = NSHostingView(rootView: SwitcherView(model: model))
+        switcher = panel(width: 460, height: 500, searchable: true)
+        switcher.isMovableByWindowBackground = false
+        switcher.acceptsMouseMovedEvents = true
+        nativeSwitcher = NativeSwitcherView(frame: switcher.contentView!.bounds)
+        switcher.contentView = nativeSwitcher
         model.onActivate = { [weak self] in
             self?.edgeReveal.setVisible(false)
             self?.setSidebarVisible(false)
         }
         model.onSelectionChange = { [weak self] in self?.showSwitcher() }
-        model.onEndSelection = { [weak self] in self?.switcher.orderOut(nil) }
+        model.onSearchStart = { [weak self] in self?.nativeSwitcher.focusSearch() }
+        model.onEndSelection = { [weak self] in
+            self?.nativeSwitcher.endSearchEditing()
+            self?.switcher.orderOut(nil)
+        }
+        NotificationCenter.default.addObserver(self, selector: #selector(switcherResignedKey),
+            name: NSWindow.didResignKeyNotification, object: switcher)
         model.refresh()
         positionSidebar()
         railMotion.prepareHidden()
@@ -66,7 +79,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.resizeSidebarIfNeeded()
             if self.model.trusted && self.tap == nil { self.startKeyboard() }
         }
-        edgeTimer = Timer(timeInterval: 0.04, repeats: true) { [weak self] _ in self?.updateEdgeReveal() }
+        edgeTimer = Timer(timeInterval: 0.04, repeats: true) { [weak self] _ in
+            self?.model.sampleFocus()
+            self?.updateEdgeReveal()
+        }
         if let edgeTimer { RunLoop.main.add(edgeTimer, forMode: .common) }
         if CommandLine.arguments.contains("--ui-test") {
             edgeReveal.setVisible(true)
@@ -98,7 +114,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         configureLocalizedMenus()
         preferencesWindow?.title = L10n.text(.settingsTitle)
         model.refreshLocalizedGroups()
-        switcher.contentView = NSHostingView(rootView: SwitcherView(model: model))
+        nativeSwitcher = NativeSwitcherView(frame: switcher.contentView!.bounds)
+        switcher.contentView = nativeSwitcher
+        nativeSwitcher.update(from: model)
     }
     @objc func refreshPreferences() { preferences.refreshLoginStatus() }
     @objc func showPreferences() {
@@ -120,8 +138,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         showPreferences()
         return false
     }
-    func panel(width: CGFloat, height: CGFloat) -> NSPanel {
-        let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: width, height: height), styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+    func panel(width: CGFloat, height: CGFloat, searchable: Bool = false) -> NSPanel {
+        let panelType: NSPanel.Type = searchable ? SwitcherPanel.self : NSPanel.self
+        let panel = panelType.init(contentRect: NSRect(x: 0, y: 0, width: width, height: height), styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         panel.level = .floating
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.isOpaque = false
@@ -163,13 +182,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         positionSidebar()
     }
     func showSwitcher() {
+        if model.searching && switcher.isVisible && switcher.frame.height < 240 {
+            var frame = switcher.frame
+            frame.origin.y -= (240 - frame.height) / 2
+            frame.size.height = 240
+            switcher.setFrame(frame, display: false)
+        }
+        nativeSwitcher.update(from: model)
+        SwitchTiming.record("Picker highlight \(model.selection + 1)/\(model.choices.count)")
         guard !switcher.isVisible else { return }
         let mouse = NSEvent.mouseLocation
         let screen = NSScreen.screens.first { $0.frame.contains(mouse) } ?? NSScreen.main
         guard let frame = screen?.visibleFrame else { return }
         let height = min(frame.height - 80, CGFloat(model.choices.count * 53 + 70), 580)
-        switcher.setFrame(NSRect(x: frame.midX - 230, y: frame.midY - height / 2, width: 460, height: height), display: true)
+        SwitchTiming.record("Presenting switcher")
+        switcher.setFrame(NSRect(x: frame.midX - 230, y: frame.midY - height / 2, width: 460, height: height), display: false)
         switcher.orderFrontRegardless()
+        SwitchTiming.record("Switcher ordered front")
+    }
+    @objc func switcherResignedKey() {
+        if model.searching { model.finish(cancel: true) }
     }
     func collapseSidebar() {
         guard !sidebarVisible else { return }
@@ -260,6 +292,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
     func handle(type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
         if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+            keyboardLog.notice("Keyboard tap was disabled (event \(type.rawValue))")
             model.finish(cancel: true)
             consumedKeys.removeAll()
             if let tap { CGEvent.tapEnable(tap: tap, enable: true) }
@@ -267,22 +300,49 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         let code = event.getIntegerValueField(.keyboardEventKeycode)
         let command = event.flags.contains(.maskCommand)
-        if type == .flagsChanged && !command { model.finish() }
+        if type == .flagsChanged && !command && model.hasSwitchGesture {
+            let arrival = DispatchTime.now().uptimeNanoseconds
+            SwitchTiming.record("Command released, input age \(SwitchTiming.milliseconds(since: event.timestamp)) ms")
+            if arrival > event.timestamp {
+                let delay = (arrival - event.timestamp) / 1_000_000
+                if delay >= 100 { keyboardLog.notice("Switch confirmation input arrived \(delay) ms late") }
+            }
+            model.releaseCommand()
+            SwitchTiming.record("Command release processed")
+            let elapsed = (DispatchTime.now().uptimeNanoseconds - arrival) / 1_000_000
+            if elapsed >= 100 { keyboardLog.notice("Switch confirmation handler took \(elapsed) ms") }
+        }
         if type == .keyUp && consumedKeys.remove(code) != nil { return nil }
+        if type == .keyDown, command, code == 3,
+           !event.flags.contains(.maskAlternate), !event.flags.contains(.maskControl), model.hasSwitchGesture {
+            model.beginSearch()
+            consumedKeys.insert(code)
+            return nil
+        }
+        // Search editing (including IME candidate navigation) belongs to AppKit.
+        // Never consume its Return/Escape/arrows in the global keyboard tap.
+        if model.searching { return Unmanaged.passUnretained(event) }
         if type == .keyDown {
-            if model.selecting && code == 53 {
+            if model.hasSwitchGesture && code == 53 {
                 model.finish(cancel: true)
                 consumedKeys.insert(code)
                 return nil
             }
-            if command && model.selecting && (code == 125 || code == 126) {
+            if command && model.hasSwitchGesture && (code == 125 || code == 126) {
+                SwitchTiming.record("Arrow received, input age \(SwitchTiming.milliseconds(since: event.timestamp)) ms")
                 model.moveSelection(backwards: code == 126)
                 consumedKeys.insert(code)
                 return nil
             }
             if command && !event.flags.contains(.maskAlternate) && !event.flags.contains(.maskControl) && (code == 48 || code == 50) {
-                model.step(sameApp: code == 50, backwards: event.flags.contains(.maskShift))
-                if model.selecting { consumedKeys.insert(code); return nil }
+                let shortcut = code == 50 ? "same-app" : "all windows"
+                SwitchTiming.record("Shortcut \(shortcut) received, input age \(SwitchTiming.milliseconds(since: event.timestamp)) ms")
+                if code == 50 && !model.hasSwitchGesture && event.getIntegerValueField(.keyboardEventAutorepeat) != 0 {
+                    return consumedKeys.contains(code) ? nil : Unmanaged.passUnretained(event)
+                }
+                let handled = model.step(sameApp: code == 50, backwards: event.flags.contains(.maskShift))
+                SwitchTiming.record("Shortcut processed, handled: \(handled), selection active: \(model.selecting)")
+                if handled { consumedKeys.insert(code); return nil }
             }
         }
         return Unmanaged.passUnretained(event)

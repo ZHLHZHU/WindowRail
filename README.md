@@ -16,7 +16,7 @@ Reveal the sidebar at the screen edge and click a window to activate it. Right-c
 
 ### Window switcher
 
-Hold Command to navigate. The blue row is the destination; “Current” marks the original window.
+Hold Command to navigate, or point at a row to select it. The blue row is the destination; “Current” marks the original window. Press ⌘F in the switcher to search app names and window titles, including Chinese text.
 
 <img src="docs/images/en/switcher.png" alt="Window switcher with a selected row and current-window marker" width="620">
 
@@ -31,10 +31,13 @@ Choose a language and configure launch at login and menu bar visibility.
 | Shortcut | Action |
 | --- | --- |
 | Hold ⌘ and press Tab | Cycle through windows across all apps |
-| Hold ⌘ and press backtick (`) | Cycle through the current app’s windows |
+| Hold ⌘ and press backtick (`) | Select a window in the current app, starting with the last-used window |
 | Keep holding ⌘ and press ↑ / ↓ | Select the previous / next window |
 | Add Shift | Cycle in reverse |
-| Release ⌘ | Activate the selected window |
+| Release ⌘ | Activate the selected window, except in search mode |
+| ⌘F while the switcher is open | Enter search; you can then release ⌘ and type |
+| ↑ / ↓ in search | Select the previous / next match |
+| Return in search, or click a row | Activate the selected window |
 | Esc | Cancel |
 
 Backtick shares a physical key with `~` on many keyboards. When the switcher is closed, the app leaves normal ⌘↑ / ⌘↓ shortcuts untouched.
